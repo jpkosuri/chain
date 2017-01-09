@@ -8,9 +8,9 @@ import (
 	"chain/core/account"
 	"chain/core/asset"
 	"chain/core/coretest"
+	"chain/core/generator"
 	"chain/core/pin"
 	"chain/database/pg/pgtest"
-	"chain/protocol/mempool"
 	"chain/protocol/prottest"
 	"chain/testutil"
 )
@@ -53,11 +53,11 @@ func setupQueryTest(t *testing.T) (context.Context, *Indexer, time.Time, time.Ti
 		t.Fatal(err)
 	}
 
-	p := mempool.New()
-	coretest.IssueAssets(ctx, t, c, p, assets, accounts, asset1.AssetID, 867, acct1.ID)
-	coretest.IssueAssets(ctx, t, c, p, assets, accounts, asset2.AssetID, 100, acct1.ID)
+	g := generator.New(c, nil, db)
+	coretest.IssueAssets(ctx, t, c, g, assets, accounts, asset1.AssetID, 867, acct1.ID)
+	coretest.IssueAssets(ctx, t, c, g, assets, accounts, asset2.AssetID, 100, acct1.ID)
 
-	prottest.MakeBlock(t, c, p.Dump(ctx))
+	prottest.MakeBlock(t, c, g.PendingTxs())
 	<-pinStore.PinWaiter(TxPinName, c.Height())
 
 	time2 := time.Now()

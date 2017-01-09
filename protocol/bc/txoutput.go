@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"chain/crypto/sha3pool"
 	"chain/encoding/blockchain"
 	"chain/encoding/bufpool"
 )
@@ -113,6 +114,7 @@ func (to *TxOutput) WriteCommitment(w io.Writer) {
 	to.OutputCommitment.writeTo(w, to.AssetVersion)
 }
 
+// TODO(oleg): fix this implementation to respect all raw bytes in the OutputCommitment, irresepctive of asset version.
 func (oc *OutputCommitment) writeTo(w io.Writer, assetVersion uint64) {
 	b := bufpool.Get()
 	defer bufpool.Put(b)
@@ -122,4 +124,12 @@ func (oc *OutputCommitment) writeTo(w io.Writer, assetVersion uint64) {
 		blockchain.WriteVarstr31(b, oc.ControlProgram)
 	}
 	blockchain.WriteVarstr31(w, b.Bytes()) // TODO(bobg): check and return error
+}
+
+func (oc *OutputCommitment) Hash(assetVersion uint64) (outputhash Hash) {
+	h := sha3pool.Get256()
+	defer sha3pool.Put256(h)
+	oc.writeTo(h, assetVersion) // TODO(oleg): get rid of this assetVersion parameter to actually write all the bytes 
+	h.Read(outputhash[:])
+	return outputhash
 }

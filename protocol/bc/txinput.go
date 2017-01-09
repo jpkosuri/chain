@@ -24,7 +24,7 @@ type (
 
 	SpendInput struct {
 		// Commitment
-		Outpoint
+		OutputID
 		OutputCommitment
 
 		// Witness
@@ -53,22 +53,21 @@ type (
 var errBadAssetID = errors.New("asset ID does not match other issuance parameters")
 
 func NewSpendInput(txhash Hash, index uint32, arguments [][]byte, assetID AssetID, amount uint64, controlProgram, referenceData []byte) *TxInput {
+	av := uint64(1)
+	oc := OutputCommitment{
+		AssetAmount: AssetAmount{
+			AssetID: assetID,
+			Amount:  amount,
+		},
+		VMVersion:      1,
+		ControlProgram: controlProgram,
+	}
 	return &TxInput{
-		AssetVersion:  1,
+		AssetVersion:  av,
 		ReferenceData: referenceData,
 		TypedInput: &SpendInput{
-			Outpoint: Outpoint{
-				Hash:  txhash,
-				Index: index,
-			},
-			OutputCommitment: OutputCommitment{
-				AssetAmount: AssetAmount{
-					AssetID: assetID,
-					Amount:  amount,
-				},
-				VMVersion:      1,
-				ControlProgram: controlProgram,
-			},
+			OutputID: ComputeOutputID(txhash, index, oc.Hash(av)),
+			OutputCommitment: oc,
 			Arguments: arguments,
 		},
 	}
@@ -207,7 +206,7 @@ func (t *TxInput) readFrom(r io.Reader, txVersion uint64) (err error) {
 
 		case 1:
 			si = new(SpendInput)
-			n, err = si.Outpoint.readFrom(icBuf)
+			n, err = si.OutputID.readFrom(icBuf)
 			if err != nil {
 				return err
 			}
@@ -321,7 +320,7 @@ func (t *TxInput) WriteInputCommitment(w io.Writer) {
 
 		case *SpendInput:
 			w.Write([]byte{1}) // spend type
-			inp.Outpoint.WriteTo(w)
+			inp.OutputID.WriteTo(w)
 			inp.OutputCommitment.writeTo(w, t.AssetVersion)
 		}
 	}
@@ -356,9 +355,9 @@ func (t *TxInput) witnessHash() Hash {
 	return h
 }
 
-func (t *TxInput) Outpoint() (o Outpoint) {
+func (t *TxInput) OutputID() (o OutputID) {
 	if si, ok := t.TypedInput.(*SpendInput); ok {
-		o = si.Outpoint
+		o = si.OutputID
 	}
 	return o
 }
